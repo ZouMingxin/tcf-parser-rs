@@ -22,30 +22,27 @@ pub struct TcfString {
     pub purpose_one_treatment: u8,
     pub publisher_cc: [char; 2],
     pub vendor_consents: Vec<u16>,
+    pub vendor_legitimate_interests: Vec<u16>,
 }
 
-fn parse_vendor_consents(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
-    let mut vendor_consents = Vec::<u16>::default();
+fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    let mut vendor_list = Vec::<u16>::default();
     let (left_over, max_vendor_id): ((&[u8], usize), u16) = take(16u8)(input)?;
     let (left_over, is_range_encoding): ((&[u8], usize), u8) = take(1u8)(left_over)?;
-    let (left_over, vendor_consent_bits) =
-        parse_vendor_consents_items(left_over, max_vendor_id as usize)?;
+    let (left_over, vendor_list_bits) = parse_vendor_items(left_over, max_vendor_id as usize)?;
 
     for i in 0..max_vendor_id {
-        if let Some(v) = vendor_consent_bits.get(i as usize) {
+        if let Some(v) = vendor_list_bits.get(i as usize) {
             if *v == 1 {
-                vendor_consents.push(i + 1);
+                vendor_list.push(i + 1);
             }
         }
     }
 
-    Ok((left_over, vendor_consents))
+    Ok((left_over, vendor_list))
 }
 
-fn parse_vendor_consents_items(
-    input: (&[u8], usize),
-    count: usize,
-) -> IResult<(&[u8], usize), Vec<u8>> {
+fn parse_vendor_items(input: (&[u8], usize), count: usize) -> IResult<(&[u8], usize), Vec<u8>> {
     many_m_n(0, count as usize, take(1u8))(input)
 }
 
@@ -70,7 +67,8 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     let (left_over, (publisher_cc_letter_1, publisher_cc_letter_2)): ((&[u8], usize), (u8, u8)) =
         pair(take(6u8), take(6u8))(left_over)?;
 
-    let (left_over, vendor_consents) = parse_vendor_consents(left_over)?;
+    let (left_over, vendor_consents) = parse_vendor_list(left_over)?;
+    let (left_over, vendor_legitimate_interests) = parse_vendor_list(left_over)?;
 
     Ok((
         left_over,
@@ -98,6 +96,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
                 (65 + publisher_cc_letter_2).into(),
             ],
             vendor_consents,
+            vendor_legitimate_interests,
         },
     ))
 }
@@ -151,6 +150,10 @@ mod tests {
         assert_eq!(
             r.as_ref().clone().unwrap().1.vendor_consents,
             vec![4, 11, 16, 28]
+        );
+        assert_eq!(
+            r.as_ref().clone().unwrap().1.vendor_legitimate_interests,
+            vec![1, 4, 21, 30,]
         );
     }
 }
