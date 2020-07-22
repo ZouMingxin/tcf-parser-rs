@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use nom::bits::complete::take;
-use nom::multi::many0;
+use nom::multi::{many0, many_m_n};
 use nom::sequence::pair;
 use nom::*;
 
@@ -27,12 +27,14 @@ pub struct TcfString {
 fn parse_vendor_consents(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
     let mut vendor_consents = Vec::<u16>::default();
     let (left_over, max_vendor_id): ((&[u8], usize), u16) = take(16u8)(input)?;
-    let (left_over, vendor_consent_bits) = parse_vendor_consents_items(left_over)?;
+    let (left_over, is_range_encoding): ((&[u8], usize), u8) = take(1u8)(left_over)?;
+    let (left_over, vendor_consent_bits) =
+        parse_vendor_consents_items(left_over, max_vendor_id as usize)?;
 
-    for i in 0..max_vendor_id + 1 {
+    for i in 0..max_vendor_id {
         if let Some(v) = vendor_consent_bits.get(i as usize) {
-            if v.to_owned() == 1 {
-                vendor_consents.push(i);
+            if *v == 1 {
+                vendor_consents.push(i + 1);
             }
         }
     }
@@ -40,8 +42,11 @@ fn parse_vendor_consents(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u
     Ok((left_over, vendor_consents))
 }
 
-fn parse_vendor_consents_items(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
-    many0(take(1u8))(input)
+fn parse_vendor_consents_items(
+    input: (&[u8], usize),
+    count: usize,
+) -> IResult<(&[u8], usize), Vec<u8>> {
+    many_m_n(0, count as usize, take(1u8))(input)
 }
 
 fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
@@ -110,8 +115,9 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse;
     use chrono::DateTime;
+
+    use crate::parse;
 
     #[test]
     fn should_parse_v2_consent() {
