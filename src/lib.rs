@@ -1,5 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use nom::bits::complete::take;
+use nom::multi::many0;
 use nom::sequence::pair;
 use nom::*;
 
@@ -20,8 +21,27 @@ pub struct TcfString {
     pub purposes_li_transparency: u32,
     pub purpose_one_treatment: u8,
     pub publisher_cc: [char; 2],
-    pub max_vendor_id: i16,
-    // pub vendor_consents: Vec<bool>,
+    pub vendor_consents: Vec<u16>,
+}
+
+fn parse_vendor_consents(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    let mut vendor_consents = Vec::<u16>::default();
+    let (left_over, max_vendor_id): ((&[u8], usize), u16) = take(16u8)(input)?;
+    let (left_over, vendor_consent_bits) = parse_vendor_consents_items(left_over)?;
+
+    for i in 0..max_vendor_id + 1 {
+        if let Some(v) = vendor_consent_bits.get(i as usize) {
+            if v.to_owned() == 1 {
+                vendor_consents.push(i);
+            }
+        }
+    }
+
+    Ok((left_over, vendor_consents))
+}
+
+fn parse_vendor_consents_items(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    many0(take(1u8))(input)
 }
 
 fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
@@ -45,7 +65,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     let (left_over, (publisher_cc_letter_1, publisher_cc_letter_2)): ((&[u8], usize), (u8, u8)) =
         pair(take(6u8), take(6u8))(left_over)?;
 
-    let (left_over, max_vendor_id) = take(16u8)(left_over)?;
+    let (left_over, vendor_consents) = parse_vendor_consents(left_over)?;
 
     Ok((
         left_over,
@@ -72,7 +92,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
                 (65 + publisher_cc_letter_1).into(),
                 (65 + publisher_cc_letter_2).into(),
             ],
-            max_vendor_id,
+            vendor_consents,
         },
     ))
 }
@@ -122,6 +142,9 @@ mod tests {
         // assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
         // assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
         assert_eq!(r.as_ref().clone().unwrap().1.publisher_cc, ['B', 'D']);
-        assert_eq!(r.as_ref().clone().unwrap().1.max_vendor_id, 28);
+        assert_eq!(
+            r.as_ref().clone().unwrap().1.vendor_consents,
+            vec![4, 11, 16, 28]
+        );
     }
 }
