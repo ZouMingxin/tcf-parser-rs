@@ -13,12 +13,16 @@ pub struct TcfString {
     pub tcf_policy_version: u8,
     pub is_service_specific: bool,
     pub use_non_standard_stacks: bool,
-    // pub purposes_allowed: u16,
-    // pub max_vendor_id: u16,
-    // pub vendor_consents: Vec<bool>,
+    pub special_feature_opt_ins: u16,
+    pub purposes_consent: u32,
+    pub purposes_li_transparency: u32,
+    pub purpose_one_treatment: u8, // could be bool, but we don't care about the value atm
+                                   // pub purposes_allowed: u16,
+                                   // pub max_vendor_id: u16,
+                                   // pub vendor_consents: Vec<bool>,
 }
 
-named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8)>, tuple!(
+named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8)>, tuple!(
     take_bits!(6u8),
     take_bits!(36u8),
     take_bits!(36u8),
@@ -29,6 +33,10 @@ named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8
     take_bits!(12u8),
     take_bits!(6u8),
     take_bits!(1u8),
+    take_bits!(1u8),
+    take_bits!(12u8),
+    take_bits!(24u8),
+    take_bits!(24u8),
     take_bits!(1u8)
 ));
 
@@ -54,6 +62,10 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             tcf_policy_version,
             is_service_sepecific_val,
             use_non_standard_stacks_val,
+            special_feature_opt_ins,
+            purposes_consent,
+            purposes_li_transparency,
+            purpose_one_treatment,
         ),
     ) = bits(parse_bits)(input)?;
 
@@ -74,6 +86,10 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             tcf_policy_version,
             is_service_specific: is_service_sepecific_val == 1,
             use_non_standard_stacks: use_non_standard_stacks_val == 1,
+            special_feature_opt_ins,
+            purposes_consent,
+            purposes_li_transparency,
+            purpose_one_treatment,
         },
     ))
 }
@@ -107,5 +123,9 @@ mod tests {
         assert_eq!(r.as_ref().clone().unwrap().1.tcf_policy_version, 2);
         assert!(!r.as_ref().clone().unwrap().1.is_service_specific);
         assert!(!r.as_ref().clone().unwrap().1.use_non_standard_stacks);
+        assert_eq!(r.as_ref().clone().unwrap().1.special_feature_opt_ins, 0);
+        // assert_eq!(r.as_ref().clone().unwrap().1.purposes_consent, 3);
+        assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
+        assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
     }
 }
