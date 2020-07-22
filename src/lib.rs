@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
 use nom::bits::complete::take;
-use nom::multi::{many0, many_m_n};
+use nom::multi::many_m_n;
 use nom::sequence::pair;
 use nom::*;
 
@@ -43,7 +43,7 @@ fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>>
 }
 
 fn parse_vendor_items(input: (&[u8], usize), count: usize) -> IResult<(&[u8], usize), Vec<u8>> {
-    many_m_n(0, count as usize, take(1u8))(input)
+    many_m_n(0, count, take(1u8))(input)
 }
 
 fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
