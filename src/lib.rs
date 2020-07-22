@@ -23,6 +23,7 @@ pub struct TcfString {
     pub publisher_cc: [char; 2],
     pub vendor_consents: Vec<u16>,
     pub vendor_legitimate_interests: Vec<u16>,
+    pub number_of_publisher_restrictions: u16,
 }
 
 fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
@@ -69,6 +70,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
 
     let (left_over, vendor_consents) = parse_vendor_list(left_over)?;
     let (left_over, vendor_legitimate_interests) = parse_vendor_list(left_over)?;
+    let (left_over, number_of_publisher_restrictions) = take(12u8)(left_over)?;
 
     Ok((
         left_over,
@@ -97,6 +99,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
             ],
             vendor_consents,
             vendor_legitimate_interests,
+            number_of_publisher_restrictions,
         },
     ))
 }
@@ -154,6 +157,14 @@ mod tests {
         assert_eq!(
             r.as_ref().clone().unwrap().1.vendor_legitimate_interests,
             vec![1, 4, 21, 30,]
+        );
+        assert_eq!(
+            r.as_ref()
+                .clone()
+                .unwrap()
+                .1
+                .number_of_publisher_restrictions,
+            0
         );
     }
 }
