@@ -12,12 +12,13 @@ pub struct TcfString {
     pub vendor_list_version: u16,
     pub tcf_policy_version: u8,
     pub is_service_specific: bool,
+    pub use_non_standard_stacks: bool,
     // pub purposes_allowed: u16,
     // pub max_vendor_id: u16,
     // pub vendor_consents: Vec<bool>,
 }
 
-named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8)>, tuple!(
+named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8)>, tuple!(
     take_bits!(6u8),
     take_bits!(36u8),
     take_bits!(36u8),
@@ -27,6 +28,7 @@ named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8
     pair!(take_bits!(6u8), take_bits!(6u8)),
     take_bits!(12u8),
     take_bits!(6u8),
+    take_bits!(1u8),
     take_bits!(1u8)
 ));
 
@@ -51,6 +53,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             vendor_list_version,
             tcf_policy_version,
             is_service_sepecific_val,
+            use_non_standard_stacks_val,
         ),
     ) = bits(parse_bits)(input)?;
 
@@ -70,6 +73,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             vendor_list_version,
             tcf_policy_version,
             is_service_specific: is_service_sepecific_val == 1,
+            use_non_standard_stacks: use_non_standard_stacks_val == 1,
         },
     ))
 }
@@ -102,5 +106,6 @@ mod tests {
         assert_eq!(r.as_ref().clone().unwrap().1.vendor_list_version, 15);
         assert_eq!(r.as_ref().clone().unwrap().1.tcf_policy_version, 2);
         assert!(!r.as_ref().clone().unwrap().1.is_service_specific);
+        assert!(!r.as_ref().clone().unwrap().1.use_non_standard_stacks);
     }
 }
