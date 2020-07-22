@@ -1,4 +1,6 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
+use nom::bits::complete::take;
+use nom::sequence::pair;
 use nom::*;
 
 pub struct TcfString {
@@ -22,63 +24,35 @@ pub struct TcfString {
     // pub vendor_consents: Vec<bool>,
 }
 
-named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8, (u8, u8), i16)>, tuple!(
-    take_bits!(6u8),
-    take_bits!(36u8),
-    take_bits!(36u8),
-    take_bits!(12u8),
-    take_bits!(12u8),
-    take_bits!(6u8),
-    pair!(take_bits!(6u8), take_bits!(6u8)),
-    take_bits!(12u8),
-    take_bits!(6u8),
-    take_bits!(1u8),
-    take_bits!(1u8),
-    take_bits!(12u8),
-    take_bits!(24u8),
-    take_bits!(24u8),
-    take_bits!(1u8),
-    pair!(take_bits!(6u8), take_bits!(6u8)),
-    take_bits!(16u8)
-));
+fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
+    let (left_over, version) = take(6u8)(input)?;
+    let (left_over, created_val) = take(36u8)(left_over)?;
+    let (left_over, last_updated_val) = take(36u8)(left_over)?;
+    let (left_over, cmp_id) = take(12u8)(left_over)?;
+    let (left_over, cmp_version) = take(12u8)(left_over)?;
+    let (left_over, consent_screen) = take(6u8)(left_over)?;
+    let (left_over, (language_letter_1, language_letter_2)): ((&[u8], usize), (u8, u8)) =
+        pair(take(6u8), take(6u8))(left_over)?;
 
-fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
-    let naive_date_time =
-        NaiveDateTime::from_timestamp((i / 10) as i64, ((i % 10) * 100_000_000) as u32);
+    let (left_over, vendor_list_version) = take(12u8)(left_over)?;
+    let (left_over, tcf_policy_version) = take(6u8)(left_over)?;
+    let (left_over, is_service_specific_val): ((&[u8], usize), u8) = take(1u8)(left_over)?;
+    let (left_over, use_non_standard_stacks_val): ((&[u8], usize), u8) = take(1u8)(left_over)?;
+    let (left_over, special_feature_opt_ins) = take(12u8)(left_over)?;
+    let (left_over, purposes_consent) = take(24u8)(left_over)?;
+    let (left_over, purposes_li_transparency) = take(24u8)(left_over)?;
+    let (left_over, purpose_one_treatment) = take(1u8)(left_over)?;
+    let (left_over, (publisher_cc_letter_1, publisher_cc_letter_2)): ((&[u8], usize), (u8, u8)) =
+        pair(take(6u8), take(6u8))(left_over)?;
 
-    DateTime::<Utc>::from_utc(naive_date_time, Utc)
-}
-
-pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
-    let (
-        input,
-        (
-            version,
-            created,
-            last_updated,
-            cmp_id,
-            cmp_version,
-            consent_screen,
-            (language_letter_1, language_letter_2),
-            vendor_list_version,
-            tcf_policy_version,
-            is_service_sepecific_val,
-            use_non_standard_stacks_val,
-            special_feature_opt_ins,
-            purposes_consent,
-            purposes_li_transparency,
-            purpose_one_treatment,
-            (publisher_cc_letter_1, publisher_cc_letter_2),
-            max_vendor_id,
-        ),
-    ) = bits(parse_bits)(input)?;
+    let (left_over, max_vendor_id) = take(16u8)(left_over)?;
 
     Ok((
-        input,
+        left_over,
         TcfString {
             version,
-            created: from_i64_to_datetime(created),
-            last_updated: from_i64_to_datetime(last_updated),
+            created: from_i64_to_datetime(created_val),
+            last_updated: from_i64_to_datetime(last_updated_val),
             cmp_id,
             cmp_version,
             consent_screen,
@@ -88,12 +62,12 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             ],
             vendor_list_version,
             tcf_policy_version,
-            is_service_specific: is_service_sepecific_val == 1,
+            is_service_specific: is_service_specific_val == 1,
             use_non_standard_stacks: use_non_standard_stacks_val == 1,
-            special_feature_opt_ins,
             purposes_consent,
-            purposes_li_transparency,
+            special_feature_opt_ins,
             purpose_one_treatment,
+            purposes_li_transparency,
             publisher_cc: [
                 (65 + publisher_cc_letter_1).into(),
                 (65 + publisher_cc_letter_2).into(),
@@ -101,6 +75,17 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             max_vendor_id,
         },
     ))
+}
+
+fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
+    let naive_date_time =
+        NaiveDateTime::from_timestamp((i / 10) as i64, ((i % 10) * 100_000_000) as u32);
+
+    DateTime::<Utc>::from_utc(naive_date_time, Utc)
+}
+
+pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
+    bits(parse_bits)(input)
 }
 
 #[cfg(test)]
