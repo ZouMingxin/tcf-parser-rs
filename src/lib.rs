@@ -16,13 +16,13 @@ pub struct TcfString {
     pub special_feature_opt_ins: u16,
     pub purposes_consent: u32,
     pub purposes_li_transparency: u32,
-    pub purpose_one_treatment: u8, // could be bool, but we don't care about the value atm
-                                   // pub purposes_allowed: u16,
-                                   // pub max_vendor_id: u16,
-                                   // pub vendor_consents: Vec<bool>,
+    pub purpose_one_treatment: u8,
+    pub publisher_cc: [char; 2],
+    // pub max_vendor_id: u16,
+    // pub vendor_consents: Vec<bool>,
 }
 
-named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8)>, tuple!(
+named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8, (u8, u8))>, tuple!(
     take_bits!(6u8),
     take_bits!(36u8),
     take_bits!(36u8),
@@ -37,7 +37,8 @@ named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8
     take_bits!(12u8),
     take_bits!(24u8),
     take_bits!(24u8),
-    take_bits!(1u8)
+    take_bits!(1u8),
+    pair!(take_bits!(6u8), take_bits!(6u8))
 ));
 
 fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
@@ -66,6 +67,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             purposes_consent,
             purposes_li_transparency,
             purpose_one_treatment,
+            (publisher_cc_letter_1, publisher_cc_letter_2),
         ),
     ) = bits(parse_bits)(input)?;
 
@@ -90,6 +92,10 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             purposes_consent,
             purposes_li_transparency,
             purpose_one_treatment,
+            publisher_cc: [
+                (65 + publisher_cc_letter_1).into(),
+                (65 + publisher_cc_letter_2).into(),
+            ],
         },
     ))
 }
@@ -127,5 +133,6 @@ mod tests {
         // assert_eq!(r.as_ref().clone().unwrap().1.purposes_consent, 3);
         assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
         assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
+        assert_eq!(r.as_ref().clone().unwrap().1.publisher_cc, ['A', 'A']);
     }
 }
