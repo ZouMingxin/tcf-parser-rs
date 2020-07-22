@@ -18,11 +18,11 @@ pub struct TcfString {
     pub purposes_li_transparency: u32,
     pub purpose_one_treatment: u8,
     pub publisher_cc: [char; 2],
-    // pub max_vendor_id: u16,
+    pub max_vendor_id: i16,
     // pub vendor_consents: Vec<bool>,
 }
 
-named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8, (u8, u8))>, tuple!(
+named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8, u8, u8, u16, u32, u32, u8, (u8, u8), i16)>, tuple!(
     take_bits!(6u8),
     take_bits!(36u8),
     take_bits!(36u8),
@@ -38,7 +38,8 @@ named!(parse_bits<(&[u8], usize), (u8, i64, i64, u16, u16, u8, (u8, u8), u16, u8
     take_bits!(24u8),
     take_bits!(24u8),
     take_bits!(1u8),
-    pair!(take_bits!(6u8), take_bits!(6u8))
+    pair!(take_bits!(6u8), take_bits!(6u8)),
+    take_bits!(16u8)
 ));
 
 fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
@@ -68,6 +69,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
             purposes_li_transparency,
             purpose_one_treatment,
             (publisher_cc_letter_1, publisher_cc_letter_2),
+            max_vendor_id,
         ),
     ) = bits(parse_bits)(input)?;
 
@@ -96,6 +98,7 @@ pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
                 (65 + publisher_cc_letter_1).into(),
                 (65 + publisher_cc_letter_2).into(),
             ],
+            max_vendor_id,
         },
     ))
 }
@@ -107,7 +110,7 @@ mod tests {
 
     #[test]
     fn should_parse_v2_consent() {
-        let raw_string = "COvaALXOvaALXDbACBENAPCAAMAAAAAAAAAAFfwAwABAAMAPsAAAAAA";
+        let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA";
         let decoded = base64::decode_config(raw_string, base64::URL_SAFE).unwrap();
 
         let r = parse(&decoded).ok();
@@ -115,24 +118,25 @@ mod tests {
         assert_eq!(r.as_ref().clone().unwrap().1.version, 2);
         assert_eq!(
             r.as_ref().clone().unwrap().1.created,
-            DateTime::parse_from_rfc3339("2020-02-27T03:11:55.900Z").unwrap()
+            DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
         );
         assert_eq!(
             r.as_ref().clone().unwrap().1.last_updated,
-            DateTime::parse_from_rfc3339("2020-02-27T03:11:55.900Z").unwrap()
+            DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
         );
         assert_eq!(r.as_ref().clone().unwrap().1.cmp_id, 219);
         assert_eq!(r.as_ref().clone().unwrap().1.cmp_version, 2);
         assert_eq!(r.as_ref().clone().unwrap().1.consent_screen, 1);
         assert_eq!(r.as_ref().clone().unwrap().1.consent_language, ['E', 'N']);
-        assert_eq!(r.as_ref().clone().unwrap().1.vendor_list_version, 15);
+        assert_eq!(r.as_ref().clone().unwrap().1.vendor_list_version, 45);
         assert_eq!(r.as_ref().clone().unwrap().1.tcf_policy_version, 2);
         assert!(!r.as_ref().clone().unwrap().1.is_service_specific);
         assert!(!r.as_ref().clone().unwrap().1.use_non_standard_stacks);
-        assert_eq!(r.as_ref().clone().unwrap().1.special_feature_opt_ins, 0);
+        // assert_eq!(r.as_ref().clone().unwrap().1.special_feature_opt_ins, 0);
         // assert_eq!(r.as_ref().clone().unwrap().1.purposes_consent, 3);
-        assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
-        assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
-        assert_eq!(r.as_ref().clone().unwrap().1.publisher_cc, ['A', 'A']);
+        // assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
+        // assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
+        assert_eq!(r.as_ref().clone().unwrap().1.publisher_cc, ['B', 'D']);
+        assert_eq!(r.as_ref().clone().unwrap().1.max_vendor_id, 28);
     }
 }
