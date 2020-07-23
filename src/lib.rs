@@ -1,8 +1,11 @@
+use crate::models::PublisherRestriction;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use nom::bits::complete::take;
 use nom::multi::many_m_n;
 use nom::sequence::pair;
 use nom::IResult;
+
+mod models;
 
 pub struct TcfString {
     pub version: u8,
@@ -23,7 +26,7 @@ pub struct TcfString {
     pub publisher_cc: [char; 2],
     pub vendor_consents: Vec<u16>,
     pub vendor_legitimate_interests: Vec<u16>,
-    pub number_of_publisher_restrictions: u16,
+    pub publisher_restrictions: Vec<PublisherRestriction>,
 }
 
 fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
@@ -45,6 +48,63 @@ fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>>
 
 fn parse_vendor_items(input: (&[u8], usize), count: usize) -> IResult<(&[u8], usize), Vec<u8>> {
     many_m_n(0, count, take(1u8))(input)
+}
+
+fn parse_publisher_restrictions(
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), Vec<PublisherRestriction>> {
+    let (left_over, number_of_publisher_restrictions): ((&[u8], usize), usize) = take(12u8)(input)?;
+
+    many_m_n(
+        0,
+        number_of_publisher_restrictions,
+        parse_publisher_restriction_item,
+    )(left_over)
+}
+
+fn parse_publisher_restriction_item(
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), PublisherRestriction> {
+    let (left_over, purpose_id) = take(6u8)(input)?;
+    let (left_over, restriction_type) = take(2u8)(left_over)?;
+    let (left_over, vendor_ids) = parse_publisher_restriction_item_vendors(left_over)?;
+
+    Ok((
+        left_over,
+        PublisherRestriction {
+            purpose_id,
+            restriction_type,
+            vendor_ids,
+        },
+    ))
+}
+
+fn parse_publisher_restriction_item_vendors(
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), Vec<u16>> {
+    let (left_over, number_of_vendors): ((&[u8], usize), usize) = take(12u8)(input)?;
+    many_m_n(0, number_of_vendors, parse_publisher_vendor_items)(left_over)
+        .map(|(input, v)| (input, v.into_iter().flatten().collect()))
+}
+
+fn parse_publisher_vendor_items(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    let (left_over, is_a_range): ((&[u8], usize), u8) = take(1u8)(input)?;
+
+    if is_a_range == 1 {
+        let (left_over, starting_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
+        let (left_over, ending_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
+
+        let mut result = vec![];
+        for x in starting_id..ending_id + 1 {
+            result.push(x);
+        }
+
+        Ok((left_over, result))
+    } else {
+        let (left_over, vendor_id) = take(16u8)(left_over)?;
+
+        Ok((left_over, vec![vendor_id]))
+    }
 }
 
 fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
@@ -70,7 +130,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
 
     let (left_over, vendor_consents) = parse_vendor_list(left_over)?;
     let (left_over, vendor_legitimate_interests) = parse_vendor_list(left_over)?;
-    let (left_over, number_of_publisher_restrictions) = take(12u8)(left_over)?;
+    let (left_over, publisher_restrictions) = parse_publisher_restrictions(left_over)?;
 
     Ok((
         left_over,
@@ -99,7 +159,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
             ],
             vendor_consents,
             vendor_legitimate_interests,
-            number_of_publisher_restrictions,
+            publisher_restrictions,
         },
     ))
 }
@@ -179,9 +239,31 @@ mod tests {
             r.as_ref().clone().unwrap().vendor_legitimate_interests,
             vec![1, 4, 21, 30,]
         );
+    }
+
+    #[test]
+    fn should_parse_publisher_restrictions_items() {
+        let consent = "CO2_OuxO2_OuxDbAAAENAAAAAAAAAAAAACiQAAAAAABAgAQAiABFAgAMAiwCNA";
+
+        let r = parse(consent).unwrap();
+
+        assert_eq!(r.publisher_restrictions.len(), 2);
+        assert_eq!(r.publisher_restrictions.first().unwrap().purpose_id, 1);
         assert_eq!(
-            r.as_ref().clone().unwrap().number_of_publisher_restrictions,
+            r.publisher_restrictions.first().unwrap().restriction_type,
             0
         );
+
+        // separate vendor ids
+        assert_eq!(
+            r.publisher_restrictions.first().unwrap().vendor_ids,
+            vec![136, 138]
+        );
+
+        // consecutive vendor ids
+        assert_eq!(
+            r.publisher_restrictions.last().unwrap().vendor_ids,
+            vec![139, 140, 141]
+        )
     }
 }
