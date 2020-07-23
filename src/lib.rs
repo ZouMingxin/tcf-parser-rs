@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDateTime, Utc};
 use nom::bits::complete::take;
 use nom::multi::many_m_n;
 use nom::sequence::pair;
-use nom::*;
+use nom::IResult;
 
 pub struct TcfString {
     pub version: u8,
@@ -112,11 +112,16 @@ fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
 }
 
 pub fn try_parse(input: &[u8]) -> IResult<&[u8], TcfString> {
-    bits(parse_bits)(input)
+    nom::bits::bits(parse_bits)(input)
 }
 
-pub fn parse(input: &[u8]) -> Option<TcfString> {
-    try_parse(input).map(|(_, tcf_string)| tcf_string).ok()
+pub fn parse(input: &str) -> Option<TcfString> {
+    match base64::decode_config(input, base64::URL_SAFE) {
+        Ok(decoded) => try_parse(decoded.as_slice())
+            .map(|(_, tcf_string)| tcf_string)
+            .ok(),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -128,9 +133,8 @@ mod tests {
     #[test]
     fn should_parse_v2_consent() {
         let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA";
-        let decoded = base64::decode_config(raw_string, base64::URL_SAFE).unwrap();
 
-        let r = parse(&decoded);
+        let r = parse(&raw_string);
 
         assert_eq!(r.as_ref().clone().unwrap().version, 2);
         assert_eq!(
