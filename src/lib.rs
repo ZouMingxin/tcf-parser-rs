@@ -116,12 +116,16 @@ pub fn try_parse(input: &[u8]) -> IResult<&[u8], TcfString> {
 }
 
 pub fn parse(input: &str) -> Option<TcfString> {
-    match base64::decode_config(input, base64::URL_SAFE) {
-        Ok(decoded) => try_parse(decoded.as_slice())
-            .map(|(_, tcf_string)| tcf_string)
-            .ok(),
-        _ => None,
-    }
+    input
+        .split(".")
+        .collect::<Vec<_>>()
+        .first()
+        .and_then(|core_string| base64::decode_config(core_string, base64::URL_SAFE).ok())
+        .and_then(|base64_decoded| {
+            try_parse(base64_decoded.as_slice())
+                .map(|(_, tcf_string)| tcf_string)
+                .ok()
+        })
 }
 
 #[cfg(test)]
@@ -129,6 +133,15 @@ mod tests {
     use chrono::DateTime;
 
     use crate::parse;
+
+    #[test]
+    fn should_be_able_to_parse_consent_with_dot() {
+        let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA.something";
+
+        let r = parse(&raw_string);
+
+        assert_eq!(r.as_ref().clone().unwrap().version, 2);
+    }
 
     #[test]
     fn should_parse_v2_consent() {
