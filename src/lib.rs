@@ -35,13 +35,13 @@ fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>>
     if is_range_encoding == 1 {
         parse_range_entry_section(left_over)
     } else {
-        parse_bit_fields_section(max_vendor_id, left_over)
+        parse_bit_fields_section(left_over, max_vendor_id)
     }
 }
 
 fn parse_bit_fields_section(
-    max_vendor_id: u16,
     input: (&[u8], usize),
+    max_vendor_id: u16,
 ) -> IResult<(&[u8], usize), Vec<u16>> {
     let mut vendor_list = Vec::<u16>::default();
     let (left_over, vendor_list_bits) = parse_vendor_items(input, max_vendor_id as usize)?;
