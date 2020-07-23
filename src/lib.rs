@@ -30,15 +30,26 @@ pub struct TcfString {
 }
 
 fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
-    let mut vendor_list = Vec::<u16>::default();
     let (left_over, max_vendor_id): ((&[u8], usize), u16) = take(16u8)(input)?;
     let (left_over, is_range_encoding): ((&[u8], usize), u8) = take(1u8)(left_over)?;
-    let (left_over, vendor_list_bits) = parse_vendor_items(left_over, max_vendor_id as usize)?;
+    if is_range_encoding == 1 {
+        parse_range_entry_section(left_over)
+    } else {
+        parse_bit_fields_section(max_vendor_id, left_over)
+    }
+}
+
+fn parse_bit_fields_section(
+    max_vendor_id: u16,
+    input: (&[u8], usize),
+) -> IResult<(&[u8], usize), Vec<u16>> {
+    let mut vendor_list = Vec::<u16>::default();
+    let (left_over, vendor_list_bits) = parse_vendor_items(input, max_vendor_id as usize)?;
 
     for i in 0..max_vendor_id {
         if let Some(v) = vendor_list_bits.get(i as usize) {
             if *v == 1 {
-                vendor_list.push(i + 1);
+                vendor_list.push((i + 1) as u16);
             }
         }
     }
@@ -67,7 +78,7 @@ fn parse_publisher_restriction_item(
 ) -> IResult<(&[u8], usize), PublisherRestriction> {
     let (left_over, purpose_id) = take(6u8)(input)?;
     let (left_over, restriction_type) = take(2u8)(left_over)?;
-    let (left_over, vendor_ids) = parse_publisher_restriction_item_vendors(left_over)?;
+    let (left_over, vendor_ids) = parse_range_entry_section(left_over)?;
 
     Ok((
         left_over,
@@ -79,32 +90,34 @@ fn parse_publisher_restriction_item(
     ))
 }
 
-fn parse_publisher_restriction_item_vendors(
-    input: (&[u8], usize),
-) -> IResult<(&[u8], usize), Vec<u16>> {
+fn parse_range_entry_section(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
     let (left_over, number_of_vendors): ((&[u8], usize), usize) = take(12u8)(input)?;
-    many_m_n(0, number_of_vendors, parse_publisher_vendor_items)(left_over)
+    many_m_n(0, number_of_vendors, parse_range_entry)(left_over)
         .map(|(input, v)| (input, v.into_iter().flatten().collect()))
 }
 
-fn parse_publisher_vendor_items(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+fn parse_range_entry(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
     let (left_over, is_a_range): ((&[u8], usize), u8) = take(1u8)(input)?;
 
     if is_a_range == 1 {
-        let (left_over, starting_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
-        let (left_over, ending_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
-
-        let mut result = vec![];
-        for x in starting_id..ending_id + 1 {
-            result.push(x);
-        }
-
-        Ok((left_over, result))
+        parse_range_vendor_ids(left_over)
     } else {
         let (left_over, vendor_id) = take(16u8)(left_over)?;
 
         Ok((left_over, vec![vendor_id]))
     }
+}
+
+fn parse_range_vendor_ids(left_over: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    let (left_over, starting_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
+    let (left_over, ending_id): ((&[u8], usize), u16) = take(16u8)(left_over)?;
+
+    let mut result = vec![];
+    for x in starting_id..ending_id + 1 {
+        result.push(x);
+    }
+
+    Ok((left_over, result))
 }
 
 fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
@@ -265,5 +278,14 @@ mod tests {
             r.publisher_restrictions.last().unwrap().vendor_ids,
             vec![139, 140, 141]
         )
+    }
+
+    #[test]
+    fn should_parse_range_vendor_consents() {
+        let consent = "CO2_lBRO2_lBRDbAAAENAAAAAAAAAAAAACiQABMAAAAQIAEAIgARQIADAIsAjQ";
+
+        let r = parse(consent).unwrap();
+
+        assert_eq!(r.vendor_consents, vec![1, 2]);
     }
 }
