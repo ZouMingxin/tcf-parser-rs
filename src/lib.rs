@@ -111,8 +111,12 @@ fn from_i64_to_datetime(i: i64) -> DateTime<Utc> {
     DateTime::<Utc>::from_utc(naive_date_time, Utc)
 }
 
-pub fn parse(input: &[u8]) -> IResult<&[u8], TcfString> {
+pub fn try_parse(input: &[u8]) -> IResult<&[u8], TcfString> {
     bits(parse_bits)(input)
+}
+
+pub fn parse(input: &[u8]) -> Option<TcfString> {
+    try_parse(input).map(|(_, tcf_string)| tcf_string).ok()
 }
 
 #[cfg(test)]
@@ -126,44 +130,40 @@ mod tests {
         let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA";
         let decoded = base64::decode_config(raw_string, base64::URL_SAFE).unwrap();
 
-        let r = parse(&decoded).ok();
+        let r = parse(&decoded);
 
-        assert_eq!(r.as_ref().clone().unwrap().1.version, 2);
+        assert_eq!(r.as_ref().clone().unwrap().version, 2);
         assert_eq!(
-            r.as_ref().clone().unwrap().1.created,
+            r.as_ref().clone().unwrap().created,
             DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
         );
         assert_eq!(
-            r.as_ref().clone().unwrap().1.last_updated,
+            r.as_ref().clone().unwrap().last_updated,
             DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
         );
-        assert_eq!(r.as_ref().clone().unwrap().1.cmp_id, 219);
-        assert_eq!(r.as_ref().clone().unwrap().1.cmp_version, 2);
-        assert_eq!(r.as_ref().clone().unwrap().1.consent_screen, 1);
-        assert_eq!(r.as_ref().clone().unwrap().1.consent_language, ['E', 'N']);
-        assert_eq!(r.as_ref().clone().unwrap().1.vendor_list_version, 45);
-        assert_eq!(r.as_ref().clone().unwrap().1.tcf_policy_version, 2);
-        assert!(!r.as_ref().clone().unwrap().1.is_service_specific);
-        assert!(!r.as_ref().clone().unwrap().1.use_non_standard_stacks);
-        // assert_eq!(r.as_ref().clone().unwrap().1.special_feature_opt_ins, 0);
-        // assert_eq!(r.as_ref().clone().unwrap().1.purposes_consent, 3);
-        // assert_eq!(r.as_ref().clone().unwrap().1.purposes_li_transparency, 0);
-        // assert_eq!(r.as_ref().clone().unwrap().1.purpose_one_treatment, 0);
-        assert_eq!(r.as_ref().clone().unwrap().1.publisher_cc, ['B', 'D']);
+        assert_eq!(r.as_ref().clone().unwrap().cmp_id, 219);
+        assert_eq!(r.as_ref().clone().unwrap().cmp_version, 2);
+        assert_eq!(r.as_ref().clone().unwrap().consent_screen, 1);
+        assert_eq!(r.as_ref().clone().unwrap().consent_language, ['E', 'N']);
+        assert_eq!(r.as_ref().clone().unwrap().vendor_list_version, 45);
+        assert_eq!(r.as_ref().clone().unwrap().tcf_policy_version, 2);
+        assert!(!r.as_ref().clone().unwrap().is_service_specific);
+        assert!(!r.as_ref().clone().unwrap().use_non_standard_stacks);
+        // assert_eq!(r.as_ref().clone().unwrap().special_feature_opt_ins, 0);
+        // assert_eq!(r.as_ref().clone().unwrap().purposes_consent, 3);
+        // assert_eq!(r.as_ref().clone().unwrap().purposes_li_transparency, 0);
+        // assert_eq!(r.as_ref().clone().unwrap().purpose_one_treatment, 0);
+        assert_eq!(r.as_ref().clone().unwrap().publisher_cc, ['B', 'D']);
         assert_eq!(
-            r.as_ref().clone().unwrap().1.vendor_consents,
+            r.as_ref().clone().unwrap().vendor_consents,
             vec![4, 11, 16, 28]
         );
         assert_eq!(
-            r.as_ref().clone().unwrap().1.vendor_legitimate_interests,
+            r.as_ref().clone().unwrap().vendor_legitimate_interests,
             vec![1, 4, 21, 30,]
         );
         assert_eq!(
-            r.as_ref()
-                .clone()
-                .unwrap()
-                .1
-                .number_of_publisher_restrictions,
+            r.as_ref().clone().unwrap().number_of_publisher_restrictions,
             0
         );
     }
