@@ -4,7 +4,7 @@ use nom::multi::many_m_n;
 use nom::sequence::pair;
 use nom::IResult;
 
-use crate::models::{PublisherRestriction, TcfString};
+use crate::models::{IabTcf, PublisherRestriction, TcfString};
 use crate::utils::{from_i64_to_datetime, from_u8_to_char};
 
 fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
@@ -98,9 +98,8 @@ fn parse_range_vendor_ids(left_over: (&[u8], usize)) -> IResult<(&[u8], usize), 
     Ok((left_over, result))
 }
 
-fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
-    let (left_over, version) = take(6u8)(input)?;
-    let (left_over, created) = parse_timestamp(left_over)?;
+fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
+    let (left_over, created) = parse_timestamp(input)?;
     let (left_over, last_updated) = parse_timestamp(left_over)?;
     let (left_over, cmp_id) = take(12u8)(left_over)?;
     let (left_over, cmp_version) = take(12u8)(left_over)?;
@@ -122,7 +121,6 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     Ok((
         left_over,
         TcfString {
-            version,
             created,
             last_updated,
             cmp_id,
@@ -145,7 +143,21 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     ))
 }
 
-pub(crate) fn try_parse(input: &[u8]) -> IResult<&[u8], TcfString> {
+fn parse_version(input: (&[u8], usize)) -> IResult<(&[u8], usize), u8> {
+    take(6u8)(input)
+}
+
+fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), IabTcf> {
+    let (left_over, version) = parse_version(input)?;
+
+    match version {
+        1 => Ok((left_over, IabTcf::V1)),
+        2 => Ok((left_over, IabTcf::V2(parse_v2(left_over)?.1))),
+        _ => Ok((left_over, IabTcf::Unknown)),
+    }
+}
+
+pub(crate) fn try_parse(input: &[u8]) -> IResult<&[u8], IabTcf> {
     nom::bits::bits(parse_bits)(input)
 }
 

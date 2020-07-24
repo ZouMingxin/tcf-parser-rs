@@ -1,5 +1,11 @@
 use chrono::{DateTime, Utc};
 
+pub enum IabTcf {
+    V1,
+    V2(TcfString),
+    Unknown
+}
+
 pub struct PublisherRestriction {
     pub purpose_id: u16,
     pub restriction_type: u8,
@@ -7,7 +13,6 @@ pub struct PublisherRestriction {
 }
 
 pub struct TcfString {
-    pub version: u8,
     pub created: DateTime<Utc>,
     pub last_updated: DateTime<Utc>,
     pub cmp_id: u16,

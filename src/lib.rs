@@ -1,11 +1,11 @@
-use crate::models::TcfString;
 use crate::parsers::try_parse;
+use models::IabTcf;
 
 mod models;
 mod parsers;
 mod utils;
 
-pub fn parse(input: &str) -> Option<TcfString> {
+pub fn parse(input: &str) -> Option<IabTcf> {
     input
         .split(".")
         .collect::<Vec<_>>()
@@ -22,53 +22,58 @@ pub fn parse(input: &str) -> Option<TcfString> {
 mod tests {
     use chrono::DateTime;
 
-    use crate::parse;
+    use crate::{models::IabTcf, parse};
 
     #[test]
     fn should_be_able_to_parse_consent_with_dot() {
         let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA.something";
 
-        let r = parse(&raw_string);
+        let r = parse(&raw_string).unwrap();
 
-        assert_eq!(r.as_ref().clone().unwrap().version, 2);
+        match r {
+            IabTcf::V2(tcf_string) => {
+                assert_eq!(tcf_string.cmp_id, 219);
+            }
+            _ => {
+                assert!(false);
+            }
+        }
     }
 
     #[test]
     fn should_parse_v2_consent() {
         let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA";
 
-        let r = parse(&raw_string);
+        let r = parse(&raw_string).unwrap();
 
-        assert_eq!(r.as_ref().clone().unwrap().version, 2);
-        assert_eq!(
-            r.as_ref().clone().unwrap().created,
-            DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
-        );
-        assert_eq!(
-            r.as_ref().clone().unwrap().last_updated,
-            DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
-        );
-        assert_eq!(r.as_ref().clone().unwrap().cmp_id, 219);
-        assert_eq!(r.as_ref().clone().unwrap().cmp_version, 2);
-        assert_eq!(r.as_ref().clone().unwrap().consent_screen, 1);
-        assert_eq!(r.as_ref().clone().unwrap().consent_language, ['E', 'N']);
-        assert_eq!(r.as_ref().clone().unwrap().vendor_list_version, 45);
-        assert_eq!(r.as_ref().clone().unwrap().tcf_policy_version, 2);
-        assert!(!r.as_ref().clone().unwrap().is_service_specific);
-        assert!(!r.as_ref().clone().unwrap().use_non_standard_stacks);
-        // assert_eq!(r.as_ref().clone().unwrap().special_feature_opt_ins, 0);
-        // assert_eq!(r.as_ref().clone().unwrap().purposes_consent, 3);
-        // assert_eq!(r.as_ref().clone().unwrap().purposes_li_transparency, 0);
-        // assert_eq!(r.as_ref().clone().unwrap().purpose_one_treatment, 0);
-        assert_eq!(r.as_ref().clone().unwrap().publisher_cc, ['B', 'D']);
-        assert_eq!(
-            r.as_ref().clone().unwrap().vendor_consents,
-            vec![4, 11, 16, 28]
-        );
-        assert_eq!(
-            r.as_ref().clone().unwrap().vendor_legitimate_interests,
-            vec![1, 4, 21, 30,]
-        );
+        match r {
+            IabTcf::V2(tcf_string) => {
+                assert_eq!(
+                    tcf_string.created,
+                    DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
+                );
+                assert_eq!(
+                    tcf_string.last_updated,
+                    DateTime::parse_from_rfc3339("2020-07-22T03:04:02.300Z").unwrap()
+                );
+                assert_eq!(tcf_string.cmp_id, 219);
+                assert_eq!(tcf_string.cmp_version, 2);
+                assert_eq!(tcf_string.consent_screen, 1);
+                assert_eq!(tcf_string.consent_language, ['E', 'N']);
+                assert_eq!(tcf_string.vendor_list_version, 45);
+                assert_eq!(tcf_string.tcf_policy_version, 2);
+                assert!(!tcf_string.is_service_specific);
+                assert!(!tcf_string.use_non_standard_stacks);
+                // assert_eq!(tcf_string.special_feature_opt_ins, 0);
+                // assert_eq!(tcf_string.purposes_consent, 3);
+                // assert_eq!(tcf_string.purposes_li_transparency, 0);
+                // assert_eq!(tcf_string.purpose_one_treatment, 0);
+                assert_eq!(tcf_string.publisher_cc, ['B', 'D']);
+                assert_eq!(tcf_string.vendor_consents, vec![4, 11, 16, 28]);
+                assert_eq!(tcf_string.vendor_legitimate_interests, vec![1, 4, 21, 30,]);
+            }
+            _ => assert!(false),
+        }
     }
 
     #[test]
@@ -77,24 +82,46 @@ mod tests {
 
         let r = parse(consent).unwrap();
 
-        assert_eq!(r.publisher_restrictions.len(), 2);
-        assert_eq!(r.publisher_restrictions.first().unwrap().purpose_id, 1);
-        assert_eq!(
-            r.publisher_restrictions.first().unwrap().restriction_type,
-            0
-        );
+        match r {
+            IabTcf::V2(tcf_string) => {
+                assert_eq!(tcf_string.publisher_restrictions.len(), 2);
+                assert_eq!(
+                    tcf_string
+                        .publisher_restrictions
+                        .first()
+                        .unwrap()
+                        .purpose_id,
+                    1
+                );
+                assert_eq!(
+                    tcf_string
+                        .publisher_restrictions
+                        .first()
+                        .unwrap()
+                        .restriction_type,
+                    0
+                );
 
-        // separate vendor ids
-        assert_eq!(
-            r.publisher_restrictions.first().unwrap().vendor_ids,
-            vec![136, 138]
-        );
+                // separate vendor ids
+                assert_eq!(
+                    tcf_string
+                        .publisher_restrictions
+                        .first()
+                        .unwrap()
+                        .vendor_ids,
+                    vec![136, 138]
+                );
 
-        // consecutive vendor ids
-        assert_eq!(
-            r.publisher_restrictions.last().unwrap().vendor_ids,
-            vec![139, 140, 141]
-        )
+                // consecutive vendor ids
+                assert_eq!(
+                    tcf_string.publisher_restrictions.last().unwrap().vendor_ids,
+                    vec![139, 140, 141]
+                );
+            }
+            _ => {
+                assert!(false);
+            }
+        }
     }
 
     #[test]
@@ -103,6 +130,11 @@ mod tests {
 
         let r = parse(consent).unwrap();
 
-        assert_eq!(r.vendor_consents, vec![1, 2]);
+        match r {
+            IabTcf::V2(tcf_string) => {
+                assert_eq!(tcf_string.vendor_consents, vec![1, 2]);
+            }
+            _ => assert!(false),
+        }
     }
 }
