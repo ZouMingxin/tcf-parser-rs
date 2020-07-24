@@ -1,7 +1,7 @@
 use crate::parsers::try_parse;
 use models::IabTcf;
 
-mod models;
+pub mod models;
 mod parsers;
 mod utils;
 
