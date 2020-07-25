@@ -4,7 +4,7 @@ use nom::multi::many_m_n;
 use nom::sequence::pair;
 use nom::IResult;
 
-use crate::models::{IabTcf, PublisherRestriction, TcfString};
+use crate::models::{IabTcf, PublisherRestriction, TcfStringV1, TcfStringV2};
 use crate::utils::{from_i64_to_datetime, from_u8_to_char};
 
 fn parse_vendor_list(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
@@ -117,14 +117,87 @@ fn parse_purposes(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u8>> {
     ))
 }
 
-fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
+fn parse_cmp_id(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    take(12u8)(input)
+}
+
+fn parse_cmp_version(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    take(12u8)(input)
+}
+
+fn parse_consent_screen(input: (&[u8], usize)) -> IResult<(&[u8], usize), u8> {
+    take(6u8)(input)
+}
+
+fn parse_vendor_list_version(input: (&[u8], usize)) -> IResult<(&[u8], usize), u16> {
+    take(12u8)(input)
+}
+
+fn parse_v1_vendor_consents(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u16>> {
+    let (left_over, max_vendor_id): ((&[u8], usize), u16) = take(16u8)(input)?;
+    let (left_over, is_range_encoding) = parse_1_bit_to_bool(left_over)?;
+
+    if is_range_encoding {
+        parse_v1_range_entry_section(left_over, max_vendor_id)
+    } else {
+        parse_bit_fields_section(left_over, max_vendor_id)
+    }
+}
+
+fn parse_v1_range_entry_section(
+    input: (&[u8], usize),
+    max_vendor_id: u16,
+) -> IResult<(&[u8], usize), Vec<u16>> {
+    let (left_over, default_consent) = parse_1_bit_to_bool(input)?;
+    let (left_over, entry_values) = parse_range_entry(left_over)?;
+
+    // return as it is if not reversing the consent
+    if !default_consent {
+        return Ok((left_over, entry_values));
+    }
+
+    let mut vendor_consents = (1..=max_vendor_id).collect::<Vec<u16>>();
+
+    vendor_consents.retain(|e| !entry_values.contains(e));
+
+    return Ok((left_over, vendor_consents));
+}
+
+fn parse_v1(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfStringV1> {
     let (left_over, created) = parse_timestamp(input)?;
     let (left_over, last_updated) = parse_timestamp(left_over)?;
-    let (left_over, cmp_id) = take(12u8)(left_over)?;
-    let (left_over, cmp_version) = take(12u8)(left_over)?;
-    let (left_over, consent_screen) = take(6u8)(left_over)?;
+    let (left_over, cmp_id) = parse_cmp_id(left_over)?;
+    let (left_over, cmp_version) = parse_cmp_version(left_over)?;
+    let (left_over, consent_screen) = parse_consent_screen(left_over)?;
     let (left_over, consent_language) = parse_language(left_over)?;
-    let (left_over, vendor_list_version) = take(12u8)(left_over)?;
+    let (left_over, vendor_list_version) = parse_vendor_list_version(left_over)?;
+    let (left_over, purposes_allowed) = parse_purposes(left_over)?;
+    let (left_over, vendor_consents) = parse_v1_vendor_consents(left_over)?;
+
+    Ok((
+        left_over,
+        TcfStringV1 {
+            created,
+            last_updated,
+            cmp_id,
+            cmp_version,
+            consent_screen,
+            consent_language,
+            vendor_list_version,
+            purposes_allowed,
+            vendor_consents,
+        },
+    ))
+}
+
+fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfStringV2> {
+    let (left_over, created) = parse_timestamp(input)?;
+    let (left_over, last_updated) = parse_timestamp(left_over)?;
+    let (left_over, cmp_id) = parse_cmp_id(left_over)?;
+    let (left_over, cmp_version) = parse_cmp_version(left_over)?;
+    let (left_over, consent_screen) = parse_consent_screen(left_over)?;
+    let (left_over, consent_language) = parse_language(left_over)?;
+    let (left_over, vendor_list_version) = parse_vendor_list_version(left_over)?;
     let (left_over, tcf_policy_version) = take(6u8)(left_over)?;
     let (left_over, is_service_specific) = parse_1_bit_to_bool(left_over)?;
     let (left_over, use_non_standard_stacks) = parse_1_bit_to_bool(left_over)?;
@@ -139,7 +212,7 @@ fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
 
     Ok((
         left_over,
-        TcfString {
+        TcfStringV2 {
             created,
             last_updated,
             cmp_id,
@@ -170,7 +243,7 @@ fn parse_bits(input: (&[u8], usize)) -> IResult<(&[u8], usize), IabTcf> {
     let (left_over, version) = parse_version(input)?;
 
     match version {
-        1 => Ok((left_over, IabTcf::V1)),
+        1 => Ok((left_over, IabTcf::V1(parse_v1(left_over)?.1))),
         2 => Ok((left_over, IabTcf::V2(parse_v2(left_over)?.1))),
         _ => Ok((left_over, IabTcf::Unknown)),
     }

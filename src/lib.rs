@@ -25,6 +25,33 @@ mod tests {
     use crate::{models::IabTcf, parse};
 
     #[test]
+    fn should_be_able_to_parse_v1_consent_string() {
+        let v1_consent_string = "BOEFEAyOEFEAyAHABDENAI4AAAB9vABAASA";
+        let r = parse(&v1_consent_string).unwrap();
+
+        match r {
+            IabTcf::V1(tcf_string) => {
+                assert_eq!(
+                    tcf_string.created,
+                    DateTime::parse_from_rfc3339("2017-11-07T19:15:55.400Z").unwrap()
+                );
+                assert_eq!(
+                    tcf_string.last_updated,
+                    DateTime::parse_from_rfc3339("2017-11-07T19:15:55.400Z").unwrap()
+                );
+                assert_eq!(tcf_string.cmp_id, 7);
+                assert_eq!(tcf_string.cmp_version, 1);
+                assert_eq!(tcf_string.consent_screen, 3);
+                assert_eq!(tcf_string.consent_language, ['E', 'N']);
+                assert_eq!(tcf_string.vendor_list_version, 8);
+                assert_eq!(tcf_string.purposes_allowed, vec![1, 2, 3]);
+                assert_eq!(tcf_string.vendor_consents.len(), 2010);
+            }
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
     fn should_be_able_to_parse_consent_with_dot() {
         let raw_string = "CO27L5XO27L5XDbACBENAtCAAIoAABQAAAIYAOBAhABAB5IAAQCAAA.something";
 

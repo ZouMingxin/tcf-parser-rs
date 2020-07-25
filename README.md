@@ -24,7 +24,7 @@ match parsed_opt {
 
 # Roadmap
 
-- [ ] Support v1
+- [ x ] Support v1
 - [ ] Parse other part of v2 tc_string
 - [ ] Return Custom Error instead of Option
 - [ ] More Documentation
