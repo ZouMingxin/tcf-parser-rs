@@ -65,7 +65,7 @@ mod tests {
                 assert!(!tcf_string.is_service_specific);
                 assert!(!tcf_string.use_non_standard_stacks);
                 // assert_eq!(tcf_string.special_feature_opt_ins, 0);
-                // assert_eq!(tcf_string.purposes_consent, 3);
+                assert_eq!(tcf_string.purposes_consent, vec![1, 5, 7]);
                 // assert_eq!(tcf_string.purposes_li_transparency, 0);
                 // assert_eq!(tcf_string.purpose_one_treatment, 0);
                 assert_eq!(tcf_string.publisher_cc, ['B', 'D']);

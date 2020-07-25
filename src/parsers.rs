@@ -98,6 +98,25 @@ fn parse_range_vendor_ids(left_over: (&[u8], usize)) -> IResult<(&[u8], usize), 
     Ok((left_over, result))
 }
 
+fn parse_purposes_consent(input: (&[u8], usize)) -> IResult<(&[u8], usize), Vec<u8>> {
+    let (left_over, raw_vec) = many_m_n(0, 24, take(1u8))(input)?;
+
+    Ok((
+        left_over,
+        raw_vec
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, r): (usize, u8)| {
+                if r == 0 {
+                    None
+                } else {
+                    Some((index + 1) as u8)
+                }
+            })
+            .collect(),
+    ))
+}
+
 fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     let (left_over, created) = parse_timestamp(input)?;
     let (left_over, last_updated) = parse_timestamp(left_over)?;
@@ -110,7 +129,7 @@ fn parse_v2(input: (&[u8], usize)) -> IResult<(&[u8], usize), TcfString> {
     let (left_over, is_service_specific) = parse_1_bit_to_bool(left_over)?;
     let (left_over, use_non_standard_stacks) = parse_1_bit_to_bool(left_over)?;
     let (left_over, special_feature_opt_ins) = take(12u8)(left_over)?;
-    let (left_over, purposes_consent) = take(24u8)(left_over)?;
+    let (left_over, purposes_consent) = parse_purposes_consent(left_over)?;
     let (left_over, purposes_li_transparency) = take(24u8)(left_over)?;
     let (left_over, purpose_one_treatment) = take(1u8)(left_over)?;
     let (left_over, publisher_cc) = parse_language(left_over)?;
