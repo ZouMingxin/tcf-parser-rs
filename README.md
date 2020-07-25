@@ -17,7 +17,7 @@ match parsed_opt {
   Some(iabtcf_parser::V1(tc_string_v1_object) => {
     // make usage of v1 data object.
   }
-  Some(iabtcf_parser::V2(tc_string_object)) => {
+  Some(iabtcf_parser::V2(tc_string_v2_object)) => {
     // all fields from core string will be available here from IabTcf struct.
     // usage of the object
   },
