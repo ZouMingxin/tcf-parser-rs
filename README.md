@@ -4,8 +4,6 @@ Port of parser in Rust from [iabtcf-java](https://github.com/InteractiveAdvertis
 
 *Working in progress, not ready for production !*
 
-This crate parses the *core string* of v2 consent only now.
-
 # Usage
 
 ```
@@ -13,7 +11,9 @@ let tc_string = "COwxsONOwxsONKpAAAENAdCAAMAAAAAAAAAAAAAAAAAA";
 let parsed_opt: Option<IabTcf> = iabtcf_parser::parse(&tc_string);
 
 match parsed_opt {
-  Some(iabtcf_parser::V1) => println!("You shouldn't be here since you passed in a v2 consent"),
+  Some(iabtcf_parser::V1(tc_string_v1_object) => {
+    // make usage of v1 data object.
+  }
   Some(iabtcf_parser::V2(tc_string_object)) => {
     // all fields from core string will be available here from IabTcf struct.
     // usage of the object
@@ -24,7 +24,8 @@ match parsed_opt {
 
 # Roadmap
 
-- [ x ] Support v1
+- [x] Support v1
+- [x] Parse Core String of v2 tc_string
 - [ ] Parse other part of v2 tc_string
 - [ ] Return Custom Error instead of Option
 - [ ] More Documentation
