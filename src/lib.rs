@@ -66,7 +66,7 @@ mod tests {
                 assert!(!tcf_string.use_non_standard_stacks);
                 // assert_eq!(tcf_string.special_feature_opt_ins, 0);
                 assert_eq!(tcf_string.purposes_consent, vec![1, 5, 7]);
-                // assert_eq!(tcf_string.purposes_li_transparency, 0);
+                assert_eq!(tcf_string.purposes_li_transparency, vec![4, 6]);
                 // assert_eq!(tcf_string.purpose_one_treatment, 0);
                 assert_eq!(tcf_string.publisher_cc, ['B', 'D']);
                 assert_eq!(tcf_string.vendor_consents, vec![4, 11, 16, 28]);

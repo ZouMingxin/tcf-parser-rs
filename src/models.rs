@@ -25,7 +25,7 @@ pub struct TcfString {
     pub use_non_standard_stacks: bool,
     pub special_feature_opt_ins: u16,
     pub purposes_consent: Vec<u8>,
-    pub purposes_li_transparency: u32,
+    pub purposes_li_transparency: Vec<u8>,
     pub purpose_one_treatment: u8,
     pub publisher_cc: [char; 2],
     pub vendor_consents: Vec<u16>,
