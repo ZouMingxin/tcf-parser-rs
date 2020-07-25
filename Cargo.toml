@@ -1,6 +1,6 @@
 [package]
 name = "tcf-parser-rs"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Mingxin <zou.mingxin@gmail.com>"]
 edition = "2018"
 
