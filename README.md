@@ -1,6 +1,7 @@
 # iabtcf-parser-rs
 
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![master](https://github.com/ZouMingxin/tcf-parser-rs/workflows/build/badge.svg)
 
 Port of parser in Rust from [iabtcf-java](https://github.com/InteractiveAdvertisingBureau/iabtcf-java).
 
